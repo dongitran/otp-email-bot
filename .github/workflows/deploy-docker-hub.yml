@@ -59,6 +59,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Install doctl
+        run: |
+          curl -sL https://github.com/digitalocean/doctl/releases/download/v1.61.0/doctl-1.61.0-linux-amd64.tar.gz | tar -xzv
+          sudo mv ./doctl /usr/local/bin/doctl
+          doctl version
+
+      - name: Download kubectl
+        uses: steebchen/kubectl@v2.0.0
+        with:
+          version: latest
+
+      - name: Authenticate with DigitalOcean
+        run: |
+          doctl auth init -t $DO_ACCESS_TOKEN
+
+      - name: Apply Kubernetes deployment
+        env:
+          K8S_ID: ${{ secrets.K8S_ID }}
+        run: |
+          doctl kubernetes cluster kubeconfig save ${K8S_ID}
+          sed -i 's/{latest}/${{ github.run_number }}/g' ./deployment/main.yaml
+          kubectl apply -f ./deployment/namespace.yaml --validate=false
+          kubectl apply -f ./deployment/main.yaml --validate=false
+
   send-notification-successful:
     needs: build
     runs-on: ubuntu-latest

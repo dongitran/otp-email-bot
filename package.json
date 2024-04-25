@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "babel app.js -d dist",
+    "build": "babel app.js --out-file dist/app.js && babel services --out-dir dist/services && babel functions --out-dir dist/functions",
     "start": "node ./app.js"
   },
   "dependencies": {

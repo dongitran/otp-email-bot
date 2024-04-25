@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otp-email-bot
+  namespace: otp-email-bot
+  labels:
+    app: otp-email-bot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otp-email-bot
+  template:
+    metadata:
+      labels:
+        app: otp-email-bot
+    spec:
+      containers:
+        - name: otp-email-bot
+          image: ideavn/otp-email-bot:{latest}
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: otp-email-bot-env

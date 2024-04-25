@@ -1,16 +1,13 @@
-FROM node:latest
+FROM node:16-alpine
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 RUN npm install
 
-# TODO: refactor
-COPY dist/ ./dist/
-COPY functions/ ./dist/functions/
-COPY services/ ./dist/services/
+COPY . .
 
-EXPOSE 3000
+RUN npm run build
 
-CMD ["node", "dist/app.js"]
+CMD ["node", "dist/index.js"]

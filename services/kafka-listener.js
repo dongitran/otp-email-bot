@@ -10,35 +10,45 @@ exports.kafkaListener = async (telegramManager) => {
 
   const admin = kafka.admin();
   await admin.connect();
+  consumer.on(consumer.events.CONNECT, async () => {
+    console.log("Connected to kafka");
+  });
+  consumer.on(consumer.events.DISCONNECT, async () => {
+    await consumer.connect();
+    startConsumer();
+  });
 
   await consumer.subscribe({
     topics: [process.env.KAFKA_TOPIC_OTP_EMAIL],
     fromBeginning: true,
   });
 
-  await consumer.run({
-    eachMessage: async ({ topic, partition, message }) => {
-      let objReceived;
-      try {
-        objReceived = JSON.parse(message.value.toString());
-        const code = objReceived?.code;
-        const email = objReceived?.identification_value;
-        const emailEscaped = email.replace(/\./g, "\\.");
+  const startConsumer = async () => {
+    await consumer.run({
+      eachMessage: async ({ topic, partition, message }) => {
+        let objReceived;
+        try {
+          objReceived = JSON.parse(message.value.toString());
+          const code = objReceived?.code;
+          const email = objReceived?.identification_value;
+          const emailEscaped = email.replace(/\./g, "\\.");
 
-        const messageSend = emailEscaped + " \\-\\-\\> `" + code + "`";
+          const messageSend = emailEscaped + " \\-\\-\\> `" + code + "`";
 
-        telegramManager.appendMessage(
-          messageSend,
-          process.env.TELEGRAM_GROUP_ID,
-          undefined //process.env.TELEGRAM_TOPIC_ID
-        );
-      } catch (error) {
-        // TODO: add log to mongo
-        console.log(error, "Consumer kafka error");
-        console.log(objReceived, "objReceived");
-      }
-    },
-  });
+          telegramManager.appendMessage(
+            messageSend,
+            process.env.TELEGRAM_GROUP_ID,
+            undefined //process.env.TELEGRAM_TOPIC_ID
+          );
+        } catch (error) {
+          // TODO: add log to mongo
+          console.log(error, "Consumer kafka error");
+          console.log(objReceived, "objReceived");
+        }
+      },
+    });
+  };
+  await startConsumer();
 
   await admin.disconnect();
 };

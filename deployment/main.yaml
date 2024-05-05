@@ -1,11 +1,12 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: otp-email-bot
   namespace: otp-email-bot
   labels:
     app: otp-email-bot
 spec:
+  serviceName: otp-email-bot
   replicas: 1
   selector:
     matchLabels:
@@ -23,3 +24,10 @@ spec:
           envFrom:
             - configMapRef:
                 name: otp-email-bot-env
+          resources:
+            limits:
+              cpu: 100m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi

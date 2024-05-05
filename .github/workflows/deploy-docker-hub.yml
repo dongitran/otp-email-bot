@@ -49,6 +49,29 @@ jobs:
           push: true
           tags: ideavn/otp-email-bot:${{ github.run_number }}
 
+  send-notification-build-failed:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ failure() && needs.build.result == 'failure' }}
+    steps:
+      - name: Send Telegram Notification
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_GROUP_DEPLOYMENTS }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
+          disable_web_page_preview: true
+          message: |
+            *❌ OTP Email Bot*  
+            
+            *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
+            *📝 Commit message:* ${{ github.event.commits[0].message }}
+            *📦 Repository:* ${{ github.repository }}
+            *🔍 See changes:* [View changes](https://github.com/${{ github.repository }}/commit/${{github.sha}})
+
+            Build Failed
+            😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️
+
   deploy:
     needs: build
     if: ${{ success() && needs.build.result == 'success' }}
@@ -83,10 +106,33 @@ jobs:
           kubectl apply -f ./deployment/namespace.yaml --validate=false
           kubectl apply -f ./deployment/main.yaml --validate=false
 
-  send-notification-successful:
-    needs: build
+  send-notification-deploy-failed:
+    needs: deploy
     runs-on: ubuntu-latest
-    if: ${{ success() && needs.build.result == 'success' }}
+    if: ${{ failure() && needs.deploy.result == 'failure' }}
+    steps:
+      - name: Send Telegram Notification
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_GROUP_DEPLOYMENTS }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
+          disable_web_page_preview: true
+          message: |
+            *❌ OTP Email Bot*  
+            
+            *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
+            *📝 Commit message:* ${{ github.event.commits[0].message }}
+            *📦 Repository:* ${{ github.repository }}
+            *🔍 See changes:* [View changes](https://github.com/${{ github.repository }}/commit/${{github.sha}})
+
+            Deployment Failed
+            😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️
+
+  send-notification-successful:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: ${{ success() && needs.deploy.result == 'success' }}
     steps:
       - name: Send Telegram Notification
         uses: appleboy/telegram-action@master
@@ -106,25 +152,4 @@ jobs:
             Deployment Successful
             🚀️️️️️️🚀️️️️️️🚀️️️️️️🚀️️️️️️🚀️️️️️️🚀️️️️️️
 
-  send-notification-deploy-failed:
-    needs: build
-    runs-on: ubuntu-latest
-    if: ${{ failure() && needs.build.result == 'failure' }}
-    steps:
-      - name: Send Telegram Notification
-        uses: appleboy/telegram-action@master
-        with:
-          to: ${{ secrets.TELEGRAM_GROUP_DEPLOYMENTS }}
-          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          format: markdown
-          disable_web_page_preview: true
-          message: |
-            *❌ OTP Email Bot*  
-            
-            *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
-            *📝 Commit message:* ${{ github.event.commits[0].message }}
-            *📦 Repository:* ${{ github.repository }}
-            *🔍 See changes:* [View changes](https://github.com/${{ github.repository }}/commit/${{github.sha}})
-
-            Deployment Failed
-            😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️
+  

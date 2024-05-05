@@ -1,5 +1,6 @@
 docker build -t nodejs-validate-data .
 docker run -v .env:/app/.env nodejs-validate-data
 
+kubectl create namespace otp-email-bot
 kubectl create configmap otp-email-bot-env --from-env-file=.env --namespace=otp-email-bot
 kubectl delete configmap -n=otp-email-bot otp-email-bot-env

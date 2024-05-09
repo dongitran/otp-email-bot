@@ -14,8 +14,10 @@ exports.kafkaListener = async (telegramManager) => {
     console.log("Connected to kafka");
   });
   consumer.on(consumer.events.DISCONNECT, async () => {
-    await consumer.connect();
-    startConsumer();
+    console.log("Disconnected from kafka");
+    const result = await consumer.connect();
+    console.log("Reconnect result", result);
+    // startConsumer();
   });
 
   await consumer.subscribe({

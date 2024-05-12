@@ -10,4 +10,4 @@ COPY . .
 
 RUN npm run build
 
-CMD ["node", "dist/app.js"]
+CMD ["/bin/sh", "-c", ". /vault/secrets/env-config && node ./dist/app.js"]

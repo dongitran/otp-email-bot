@@ -15,7 +15,19 @@ spec:
     metadata:
       labels:
         app: otp-email-bot
+      annotations:
+        vault.hashicorp.com/agent-inject: 'true'
+        vault.hashicorp.com/role: 'otp-email-bot-dev'
+        vault.hashicorp.com/agent-pre-populate-only: 'true'
+        vault.hashicorp.com/agent-inject-secret-env-config: 'kv/otp-email-bot-dev'
+        vault.hashicorp.com/agent-inject-template-env-config: |
+           {{ with secret "kv/otp-email-bot-dev" -}}
+              {{- range $key, $value := .Data.data }}
+                export {{ $key }}="{{ $value }}"
+              {{- end }}
+            {{- end }}
     spec:
+      serviceAccountName: otp-email-bot-dev-auth
       containers:
         - name: otp-email-bot
           image: ideavn/otp-email-bot:{latest}

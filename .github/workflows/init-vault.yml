@@ -1,9 +1,10 @@
-name: Deploy to Docker Hub
+name: Init Vault
 
 on:
   push:
-    #branches:
-      #- main
+    branches:
+      - init-vault
+  workflow_dispatch:
 
 jobs:
   send-notification-started:
@@ -17,7 +18,7 @@ jobs:
           format: markdown
           disable_web_page_preview: true
           message: |
-            *🚀 OTP Email Bot* 🏃‍♂️${{ github.run_number }}
+            *🚀 OTP Email Bot - Init Vault*  🏃‍♂️${{ github.run_number }}
 
             *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
             *📝 Commit message:* ${{ github.event.commits[0].message }}
@@ -26,55 +27,7 @@ jobs:
 
             Started 🚁️️️️️️🚁️️️️️️🚁️️️️️️🚁️️️️️️
 
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-  
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-  
-      - name: Login to Docker Hub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-  
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ideavn/otp-email-bot:${{ github.run_number }}
-
-  send-notification-build-failed:
-    needs: build
-    runs-on: ubuntu-latest
-    if: ${{ failure() && needs.build.result == 'failure' }}
-    steps:
-      - name: Send Telegram Notification
-        uses: appleboy/telegram-action@master
-        with:
-          to: ${{ secrets.TELEGRAM_GROUP_DEPLOYMENTS }}
-          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          format: markdown
-          disable_web_page_preview: true
-          message: |
-            *❌ OTP Email Bot*  
-            
-            *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
-            *📝 Commit message:* ${{ github.event.commits[0].message }}
-            *📦 Repository:* ${{ github.repository }}
-            *🔍 See changes:* [View changes](https://github.com/${{ github.repository }}/commit/${{github.sha}})
-
-            Build Failed
-            😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️
-
   deploy:
-    needs: build
-    if: ${{ success() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     env:
       DO_ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
@@ -100,11 +53,42 @@ jobs:
       - name: Apply Kubernetes deployment
         env:
           K8S_ID: ${{ secrets.K8S_ID }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          TELEGRAM_GROUP_ID: ${{ secrets.TELEGRAM_GROUP_ID }}
+          KAFKA_TELEGRAM_GROUP_ID: ${{ secrets.KAFKA_TELEGRAM_GROUP_ID }}
+          KAFKA_TELEGRAM_TOPIC_ID: ${{ secrets.KAFKA_TELEGRAM_TOPIC_ID }}
+          KAFKA_PRODUCER_BROKER_DB_CHANGE: ${{ secrets.KAFKA_PRODUCER_BROKER_DB_CHANGE }}
+          KAFKA_TOPIC_OTP_EMAIL: ${{ secrets.KAFKA_TOPIC_OTP_EMAIL }}
+          MONGO_LOG_URL: ${{ secrets.MONGO_LOG_URL }}
+          MONGO_DB_NAME: ${{ secrets.MONGO_DB_NAME }}
+          OTP_DB_NAME: ${{ secrets.OTP_DB_NAME }}
+          OTP_TABLE_NAME: ${{ secrets.OTP_TABLE_NAME }}
         run: |
           doctl kubernetes cluster kubeconfig save ${K8S_ID}
-          sed -i 's/{latest}/${{ github.run_number }}/g' ./deployment/main.yaml
-          kubectl apply -f ./deployment/namespace.yaml --validate=false
-          kubectl apply -f ./deployment/main.yaml --validate=false
+          kubectl exec -n vault -i vault-0 -- vault kv put \
+            kv/otp-email-bot-dev \
+            BOT_TOKEN="${BOT_TOKEN}" \
+            TELEGRAM_GROUP_ID="${TELEGRAM_GROUP_ID}" \
+            KAFKA_TELEGRAM_GROUP_ID="${KAFKA_TELEGRAM_GROUP_ID}" \
+            KAFKA_TELEGRAM_TOPIC_ID="${KAFKA_TELEGRAM_TOPIC_ID}" \
+            KAFKA_PRODUCER_BROKER_DB_CHANGE="${KAFKA_PRODUCER_BROKER_DB_CHANGE}" \
+            KAFKA_TOPIC_OTP_EMAIL="${KAFKA_TOPIC_OTP_EMAIL}" \
+            MONGO_LOG_URL="${MONGO_LOG_URL}" \
+            MONGO_DB_NAME="${MONGO_DB_NAME}" \
+            OTP_DB_NAME="${OTP_DB_NAME}" \
+            OTP_TABLE_NAME="${OTP_TABLE_NAME}"
+
+          kubectl exec -n vault -i vault-0 -- vault policy write otp-email-bot-svc-policy - <<EOH
+          path "kv/data/otp-email-bot-dev" {
+            capabilities = ["read"]
+          }
+          EOH
+
+          kubectl exec -n vault -i vault-0 -- vault write auth/kubernetes/role/otp-email-bot-dev \
+            bound_service_account_names=otp-email-bot-dev-auth \
+            bound_service_account_namespaces=otp-email-bot \
+            policies=otp-email-bot-svc-policy \
+            ttl=72h
 
   send-notification-deploy-failed:
     needs: deploy
@@ -119,14 +103,14 @@ jobs:
           format: markdown
           disable_web_page_preview: true
           message: |
-            *❌ OTP Email Bot*  
+            *❌ OTP Email Bot - Init Vault *  🏃‍♂️${{ github.run_number }}
             
             *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
             *📝 Commit message:* ${{ github.event.commits[0].message }}
             *📦 Repository:* ${{ github.repository }}
             *🔍 See changes:* [View changes](https://github.com/${{ github.repository }}/commit/${{github.sha}})
 
-            Deployment Failed
+            Deploy Failed!!!
             😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️
 
   send-notification-successful:
@@ -142,14 +126,12 @@ jobs:
           format: markdown
           disable_web_page_preview: true
           message: |
-            *🎉 OTP Email Bot*  
+            *🎉 OTP Email Bot - Init Vault *  🏃‍♂️${{ github.run_number }}
             
             *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
             *📝 Commit message:* ${{ github.event.commits[0].message }}
             *📦 Repository:* ${{ github.repository }}
             *🔍 See changes:* [View changes](https://github.com/${{ github.repository }}/commit/${{github.sha}})
 
-            Deployment Successful
+            Successful
             🚀️️️️️️🚀️️️️️️🚀️️️️️️🚀️️️️️️🚀️️️️️️🚀️️️️️️
-
-  

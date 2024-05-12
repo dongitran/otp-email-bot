@@ -33,9 +33,6 @@ spec:
           image: ideavn/otp-email-bot:{latest}
           ports:
             - containerPort: 8080
-          envFrom:
-            - configMapRef:
-                name: otp-email-bot-env
           resources:
             limits:
               cpu: 100m

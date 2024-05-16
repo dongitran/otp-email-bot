@@ -9,30 +9,18 @@ exports.kafkaListener = async (telegramManager) => {
     groupId: "otp-email-bot-group",
     retry: {
       initialRetryTime: 300,
-      retries: 30000,
+      retries: 3000,
       restartOnFailure: () => true,
     },
   });
-  await consumer.connect();
-
-  const admin = kafka.admin();
-  await admin.connect();
-  consumer.on(consumer.events.CONNECT, async () => {
-    console.log("Connected to kafka");
-  });
-  consumer.on(consumer.events.DISCONNECT, async () => {
-    console.log("Disconnected from kafka");
-    // const result = await consumer.connect();
-    // console.log("Reconnect result", result);
-    // startConsumer();
-  });
-
-  await consumer.subscribe({
-    topics: [process.env.KAFKA_TOPIC_OTP_EMAIL],
-    fromBeginning: true,
-  });
 
   const startConsumer = async () => {
+    await consumer.connect();
+    await consumer.subscribe({
+      topics: [process.env.KAFKA_TOPIC_OTP_EMAIL],
+      fromBeginning: true,
+    });
+
     await consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
         let objReceived;
@@ -57,7 +45,36 @@ exports.kafkaListener = async (telegramManager) => {
       },
     });
   };
-  await startConsumer();
 
-  await admin.disconnect();
+  const restartConsumer = async () => {
+    console.log("Restarting consumer...");
+    try {
+      await consumer.stop();
+      await startConsumer();
+    } catch (error) {
+      console.error("Error restarting consumer:", error);
+      // Handle error
+    }
+  };
+
+  consumer.on(consumer.events.CONNECT, async () => {
+    console.log("Connected to Kafka");
+  });
+
+  consumer.on(consumer.events.DISCONNECT, async () => {
+    console.log("Disconnected from Kafka");
+    await restartConsumer();
+  });
+
+  consumer.on(consumer.events.STOP, async () => {
+    console.log("Consumer stopped");
+    await restartConsumer();
+  });
+
+  consumer.on(consumer.events.CRASH, async () => {
+    console.log("Consumer crashed");
+    await restartConsumer();
+  });
+
+  await startConsumer();
 };

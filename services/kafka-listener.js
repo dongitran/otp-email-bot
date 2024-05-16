@@ -76,5 +76,10 @@ exports.kafkaListener = async (telegramManager) => {
     await restartConsumer();
   });
 
+  consumer.on(consumer.events.REQUEST_TIMEOUT, async () => {
+    console.log("Consumer request timeout");
+    await restartConsumer();
+  });
+
   await startConsumer();
 };

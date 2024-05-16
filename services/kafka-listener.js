@@ -8,19 +8,39 @@ exports.kafkaListener = async (telegramManager) => {
   const consumer = kafka.consumer({
     groupId: "otp-email-bot-group",
     retry: {
-      initialRetryTime: 300,
-      retries: 3000,
-      restartOnFailure: () => true,
+      maxRetryTime: 1000000,
+      retries: 50000,
+      restartOnFailure: async (e) => {
+        return true;
+      },
     },
+  });
+  await consumer.connect();
+
+  const admin = kafka.admin();
+  await admin.connect();
+  consumer.on(consumer.events.CONNECT, async () => {
+    console.log("Connected to kafka");
+  });
+  consumer.on(consumer.events.DISCONNECT, async (error) => {
+    console.log(error, "Disconnected from kafka");
+  });
+
+  consumer.on(consumer.events.CRASH, async (event) => {
+    console.error(`Consumer crashed: ${event.payload.error.message}`);
+    console.error(`Crash type: ${event.payload.error.type}`);
+    if (event.payload.error.message === "Failed to find group coordinator") {
+      console.log("Restart consumer when crash message is Failed to find group coordinator");
+      startConsumer();
+    }
+  });
+
+  await consumer.subscribe({
+    topics: [process.env.KAFKA_TOPIC_OTP_EMAIL],
+    fromBeginning: true,
   });
 
   const startConsumer = async () => {
-    await consumer.connect();
-    await consumer.subscribe({
-      topics: [process.env.KAFKA_TOPIC_OTP_EMAIL],
-      fromBeginning: true,
-    });
-
     await consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
         let objReceived;
@@ -45,41 +65,7 @@ exports.kafkaListener = async (telegramManager) => {
       },
     });
   };
-
-  const restartConsumer = async () => {
-    console.log("Restarting consumer...");
-    try {
-      await consumer.stop();
-      await startConsumer();
-    } catch (error) {
-      console.error("Error restarting consumer:", error);
-      // Handle error
-    }
-  };
-
-  consumer.on(consumer.events.CONNECT, async () => {
-    console.log("Connected to Kafka");
-  });
-
-  consumer.on(consumer.events.DISCONNECT, async () => {
-    console.log("Disconnected from Kafka");
-    await restartConsumer();
-  });
-
-  consumer.on(consumer.events.STOP, async () => {
-    console.log("Consumer stopped");
-    await restartConsumer();
-  });
-
-  consumer.on(consumer.events.CRASH, async () => {
-    console.log("Consumer crashed");
-    await restartConsumer();
-  });
-
-  consumer.on(consumer.events.REQUEST_TIMEOUT, async () => {
-    console.log("Consumer request timeout");
-    await restartConsumer();
-  });
-
   await startConsumer();
+
+  await admin.disconnect();
 };

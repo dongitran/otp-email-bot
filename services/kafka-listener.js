@@ -10,6 +10,10 @@ exports.kafkaListener = async (telegramManager) => {
     retry: {
       initialRetryTime: 300,
       retries: 30000,
+      restartOnFailure: (error) => {
+        console.error("restartOnFailure: " + error);
+        return true;
+      },
     },
   });
   await consumer.connect();

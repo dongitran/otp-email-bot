@@ -5,7 +5,13 @@ exports.kafkaListener = async (telegramManager) => {
     clientId: "otp-email-bot-client-" + Math.random().toString(36).substring(7),
     brokers: process.env.KAFKA_PRODUCER_BROKER_DB_CHANGE.split(","),
   });
-  const consumer = kafka.consumer({ groupId: "otp-email-bot-group" });
+  const consumer = kafka.consumer({
+    groupId: "otp-email-bot-group",
+    retry: {
+      initialRetryTime: 300,
+      retries: 30000,
+    },
+  });
   await consumer.connect();
 
   const admin = kafka.admin();

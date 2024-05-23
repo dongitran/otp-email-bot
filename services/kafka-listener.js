@@ -49,8 +49,8 @@ exports.kafkaListener = async (telegramManager) => {
           const code = objReceived?.code;
           const email = objReceived?.identification_value;
           let emailEscaped = email.replace(/\./g, "\\.");
-          emailEscaped = email.replace(/\-/g, "\\-");
-          emailEscaped = email.replace(/\_/g, "\\_");
+          emailEscaped = emailEscaped.replace(/\-/g, "\\-");
+          emailEscaped = emailEscaped.replace(/\_/g, "\\_");
 
           const messageSend = emailEscaped + " \\-\\-\\> `" + code + "`";
 

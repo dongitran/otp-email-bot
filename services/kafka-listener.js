@@ -1,4 +1,5 @@
 const { Kafka } = require("kafkajs");
+const escapeMarkdown = require("../functions/escape-markdown");
 
 exports.kafkaListener = async (telegramManager) => {
   const kafka = new Kafka({
@@ -48,10 +49,8 @@ exports.kafkaListener = async (telegramManager) => {
           objReceived = JSON.parse(message.value.toString());
           const code = objReceived?.code;
           const email = objReceived?.identification_value;
-          let emailEscaped = email.replace(/\./g, "\\.");
-          emailEscaped = emailEscaped.replace(/\-/g, "\\-");
-          emailEscaped = emailEscaped.replace(/\_/g, "\\_");
-          
+          const emailEscaped = escapeMarkdown(email);
+
 
           const messageSend = emailEscaped + " \\-\\-\\> `" + code + "`";
 

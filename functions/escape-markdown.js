@@ -1,4 +1,3 @@
-
 const SPECIAL_CHARS = [
   '\\',
   '_',
@@ -21,9 +20,11 @@ const SPECIAL_CHARS = [
   '}',
   '.',
   '!'
-]
+];
 
 const escapeMarkdown = (text) => {
-  SPECIAL_CHARS.forEach(char => (text = text.replaceAll(char, `\\${char}`)))
-  return text
-}
+  const regex = new RegExp(`[${SPECIAL_CHARS.map(char => `\\${char}`).join('')}]`, 'g');
+  return text.replace(regex, char => `\\${char}`);
+};
+
+module.exports = escapeMarkdown;

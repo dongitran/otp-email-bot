@@ -24,6 +24,6 @@ const SPECIAL_CHARS = [
 ]
 
 const escapeMarkdown = (text) => {
-  SPECIAL_CHARS.forEach(char => (text = email.replace(/\{char}/g, `\\${char}`) text.replaceAll(char, `\\${char}`)))
+  SPECIAL_CHARS.forEach(char => (text = text.replaceAll(char, `\\${char}`)))
   return text
 }

@@ -1,0 +1,124 @@
+name: Init Vault
+
+on:
+  push:
+    branches:
+      - init-vault
+  workflow_dispatch:
+
+jobs:
+  send-notification-started:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram Notification
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_GROUP_DEPLOYMENTS }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
+          disable_web_page_preview: true
+          message: |
+            *🚀 OTP Email Bot - Init Vault - Local Server *  🏃‍♂️${{ github.run_number }}
+
+            *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
+            *📝 Commit message:* ${{ github.event.commits[0].message }}
+            *📦 Repository:* ${{ github.repository }}
+            *🔍 See changes:* [View changes](https://github.com/${{ github.repository }}/commit/${{github.sha}})
+
+            Started 🚁️️️️️️🚁️️️️️️🚁️️️️️️🚁️️️️️️
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up kubectl
+        uses: azure/k8s-set-context@v1
+        with:
+          kubeconfig: ${{ secrets.KUBE_CONFIG_K8S_LOCAL }}
+          version: "latest"
+
+      - name: Apply Kubernetes deployment
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          TELEGRAM_GROUP_ID: ${{ secrets.TELEGRAM_GROUP_ID }}
+          KAFKA_TELEGRAM_GROUP_ID: ${{ secrets.KAFKA_TELEGRAM_GROUP_ID }}
+          KAFKA_TELEGRAM_TOPIC_ID: ${{ secrets.KAFKA_TELEGRAM_TOPIC_ID }}
+          KAFKA_PRODUCER_BROKER_DB_CHANGE: ${{ secrets.KAFKA_PRODUCER_BROKER_DB_CHANGE }}
+          KAFKA_TOPIC_OTP_EMAIL: ${{ secrets.KAFKA_TOPIC_OTP_EMAIL }}
+          MONGO_LOG_URL: ${{ secrets.MONGO_LOG_URL }}
+          MONGO_DB_NAME: ${{ secrets.MONGO_DB_NAME }}
+          OTP_DB_NAME: ${{ secrets.OTP_DB_NAME }}
+          OTP_TABLE_NAME: ${{ secrets.OTP_TABLE_NAME }}
+        run: |
+          kubectl exec -n vault -i vault-0 -- vault kv put \
+            kv/otp-email-bot-dev \
+            BOT_TOKEN="${BOT_TOKEN}" \
+            TELEGRAM_GROUP_ID="${TELEGRAM_GROUP_ID}" \
+            KAFKA_TELEGRAM_GROUP_ID="${KAFKA_TELEGRAM_GROUP_ID}" \
+            KAFKA_TELEGRAM_TOPIC_ID="${KAFKA_TELEGRAM_TOPIC_ID}" \
+            KAFKA_PRODUCER_BROKER_DB_CHANGE="${KAFKA_PRODUCER_BROKER_DB_CHANGE}" \
+            KAFKA_TOPIC_OTP_EMAIL="${KAFKA_TOPIC_OTP_EMAIL}" \
+            MONGO_LOG_URL="${MONGO_LOG_URL}" \
+            MONGO_DB_NAME="${MONGO_DB_NAME}" \
+            OTP_DB_NAME="${OTP_DB_NAME}" \
+            OTP_TABLE_NAME="${OTP_TABLE_NAME}"
+
+          kubectl exec -n vault -i vault-0 -- vault policy write otp-email-bot-svc-policy - <<EOH
+          path "kv/data/otp-email-bot-dev" {
+            capabilities = ["read"]
+          }
+          EOH
+
+          kubectl exec -n vault -i vault-0 -- vault write auth/kubernetes/role/otp-email-bot-dev \
+            bound_service_account_names=otp-email-bot-dev-auth \
+            bound_service_account_namespaces=otp-email-bot \
+            policies=otp-email-bot-svc-policy \
+            ttl=72h
+
+  send-notification-deploy-failed:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: ${{ failure() && needs.deploy.result == 'failure' }}
+    steps:
+      - name: Send Telegram Notification
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_GROUP_DEPLOYMENTS }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
+          disable_web_page_preview: true
+          message: |
+            *❌ OTP Email Bot - Init Vault - Local Server *  🏃‍♂️${{ github.run_number }}
+            
+            *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
+            *📝 Commit message:* ${{ github.event.commits[0].message }}
+            *📦 Repository:* ${{ github.repository }}
+            *🔍 See changes:* [View changes](https://github.com/${{ github.repository }}/commit/${{github.sha}})
+
+            Deploy Failed!!!
+            😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️
+
+  send-notification-successful:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: ${{ success() && needs.deploy.result == 'success' }}
+    steps:
+      - name: Send Telegram Notification
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_GROUP_DEPLOYMENTS }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
+          disable_web_page_preview: true
+          message: |
+            *🎉 OTP Email Bot - Init Vault - Local Server *  🏃‍♂️${{ github.run_number }}
+            
+            *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
+            *📝 Commit message:* ${{ github.event.commits[0].message }}
+            *📦 Repository:* ${{ github.repository }}
+            *🔍 See changes:* [View changes](https://github.com/${{ github.repository }}/commit/${{github.sha}})
+
+            Successful
+            🚀️️️️️️🚀️️️️️️🚀️️️️️️🚀️️️️️️🚀️️️️️️🚀️️️️️️

@@ -3,7 +3,7 @@ name: Deploy
 on:
   push:
     branches:
-      - main
+      - local-deploy
 
 jobs:
   send-notification-started:
@@ -17,7 +17,7 @@ jobs:
           format: markdown
           disable_web_page_preview: true
           message: |
-            *🚀 OTP Email Bot * 🏃‍♂️${{ github.run_number }}
+            *🚀 OTP Email Bot - Local Server * 🏃‍♂️${{ github.run_number }}
 
             *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
             *📝 Commit message:* ${{ github.event.commits[0].message }}
@@ -62,7 +62,7 @@ jobs:
           format: markdown
           disable_web_page_preview: true
           message: |
-            *❌ OTP Email Bot * 🏃‍♂️${{ github.run_number }}
+            *❌ OTP Email Bot - Local Server * 🏃‍♂️${{ github.run_number }}
             
             *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
             *📝 Commit message:* ${{ github.event.commits[0].message }}
@@ -76,32 +76,18 @@ jobs:
     needs: build
     if: ${{ success() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
-    env:
-      DO_ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Install doctl
-        run: |
-          curl -sL https://github.com/digitalocean/doctl/releases/download/v1.61.0/doctl-1.61.0-linux-amd64.tar.gz | tar -xzv
-          sudo mv ./doctl /usr/local/bin/doctl
-          doctl version
-
-      - name: Download kubectl
-        uses: steebchen/kubectl@v2.0.0
+      - name: Set up kubectl
+        uses: azure/k8s-set-context@v1
         with:
-          version: latest
-
-      - name: Authenticate with DigitalOcean
-        run: |
-          doctl auth init -t $DO_ACCESS_TOKEN
+          kubeconfig: ${{ secrets.KUBE_CONFIG_K8S_LOCAL }}
+          version: "latest"
 
       - name: Apply Kubernetes deployment
-        env:
-          K8S_ID: ${{ secrets.K8S_ID }}
         run: |
-          doctl kubernetes cluster kubeconfig save ${K8S_ID}
           sed -i 's/{latest}/${{ github.run_number }}/g' ./deployment/main.yaml
           kubectl apply -f ./deployment/namespace.yaml --validate=false
           kubectl apply -f ./deployment/service-account.yaml --validate=false
@@ -120,7 +106,7 @@ jobs:
           format: markdown
           disable_web_page_preview: true
           message: |
-            *❌ OTP Email Bot * 🏃‍♂️${{ github.run_number }}
+            *❌ OTP Email Bot - Local Server * 🏃‍♂️${{ github.run_number }}
             
             *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
             *📝 Commit message:* ${{ github.event.commits[0].message }}
@@ -143,7 +129,7 @@ jobs:
           format: markdown
           disable_web_page_preview: true
           message: |
-            *🎉 OTP Email Bot * 🏃‍♂️${{ github.run_number }}
+            *🎉 OTP Email Bot - Local Server * 🏃‍♂️${{ github.run_number }} 
             
             *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
             *📝 Commit message:* ${{ github.event.commits[0].message }}

@@ -3,7 +3,7 @@ name: Init Vault
 on:
   push:
     branches:
-      - init-vault
+      - local-init-vault
   workflow_dispatch:
 
 jobs:
